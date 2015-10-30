@@ -1,7 +1,7 @@
 package checker
 
 import (
-	"runtime"
+	"sync"
 	"fmt"
 	"time"
 	"testing"
@@ -19,6 +19,22 @@ func TestChecker(t *testing.T) {
 			Name: "node2",
 			Addr: ":6379",
 		},
+		Shard{
+			Name: "node3",
+			Addr: ":6378",
+		},
+		Shard{
+			Name: "node4",
+			Addr: ":6379",
+		},
+		Shard{
+			Name: "node5",
+			Addr: ":6378",
+		},
+		Shard{
+			Name: "node6",
+			Addr: ":6379",
+		},
 	}
 	
 	checker := ClusterChecker {
@@ -27,14 +43,25 @@ func TestChecker(t *testing.T) {
 		Threshold: 3 * time.Second,
 	}
 
-	fmt.Println("Status:", shards[0].GetStatus(), ", ", shards[1].GetStatus())
-	checker.Start(shards, func(s *Shard,status int){s.SetStatus(status)})
-	for i := 0; i < 5; i++ {
-		fmt.Println("------:", shards[0].GetStatus(), ", ", shards[1].GetStatus())
-		time.Sleep(1 * time.Second)
-	}
-	checker.Stop()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 60; i++ {
+			fmt.Print("[", i, "] Status: ")
+			for j, _ := range shards {
+				fmt.Print(shards[j].GetStatus(), ", ")
+			}
+			fmt.Println("")
+			time.Sleep(1 * time.Second)
+		}
+	}()
 	
+	checker.Start(shards, func(s *Shard,status int){s.SetStatus(status)})
+	time.Sleep(60 * time.Second)
+
+	checker.Stop()
 	time.Sleep(2 * time.Second)
-	fmt.Println(runtime.NumGoroutine())
+	
+	wg.Wait()
 }

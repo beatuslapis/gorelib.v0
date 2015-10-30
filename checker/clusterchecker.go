@@ -15,6 +15,7 @@ type checkContext struct {
 	shard *Shard
 	mpool *pool.Pool
 	alive time.Time
+	delay uint
 	penalty uint
 	incheck bool
 }
@@ -46,7 +47,8 @@ const (
 func (c *ClusterChecker) nodeScheduler(s *Shard) {
 	cxt := &checkContext{
 		shard: s,
-		penalty: 1,
+		delay: 1,
+		penalty: 2,
 	}
 	for {
 		select {
@@ -69,7 +71,7 @@ func (c *ClusterChecker) processAlive(cxt *checkContext) {
 	case StatusUnknown:
 		c.statusfn(cxt.shard, StatusUp)
 	case StatusDown:
-		if cxt.penalty == 1 {
+		if cxt.delay == 1 {
 			c.statusfn(cxt.shard, StatusUp)
 		}
 	case StatusUp:
@@ -77,6 +79,9 @@ func (c *ClusterChecker) processAlive(cxt *checkContext) {
 	}
 
 	cxt.alive = time.Now()
+	if cxt.delay > 1 {
+		cxt.delay--
+	}
 	if cxt.penalty > 1 {
 		cxt.penalty--
 	}
@@ -90,7 +95,11 @@ func (c *ClusterChecker) processDead(cxt *checkContext) {
 	case StatusDown:
 	case StatusUp:
 		if time.Since(cxt.alive) > c.Threshold {
-			cxt.penalty *= 2
+			cxt.delay = cxt.penalty
+			cxt.penalty *= 3
+			if maxpenalty := uint(c.Threshold.Seconds() * 10); cxt.penalty > maxpenalty {
+				cxt.penalty = maxpenalty
+			}
 			c.statusfn(cxt.shard, StatusDown)
 		}
 	default:
