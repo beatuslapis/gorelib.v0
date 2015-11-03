@@ -4,7 +4,9 @@ import (
 	"errors"
 	"sync"
 	"time"
-	
+
+	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
+
 	"github.com/mediocregopher/radix.v2/redis"
 )
 
@@ -83,15 +85,14 @@ func (c *Cluster) Reload(options *ClusterOptions) error {
 	c.failover = options.Failover
 	c.mx.Unlock()
 	
-	setStatus := func(shard *Shard, status int) {
-		c.mx.Lock()
-		defer c.mx.Unlock()
-		
-		shard.SetStatus(status)
-	}
 
 	if c.checker != nil {
-		go c.checker.Start(shards, setStatus)
+		go c.checker.Start(shards, func(s *Shard, st int) {
+			c.mx.Lock()
+			defer c.mx.Unlock()
+
+			s.SetStatus(st)
+		})
 	}
 
 	return nil
@@ -103,19 +104,18 @@ func (c *Cluster) Reload(options *ClusterOptions) error {
 func (c *Cluster) getShard(key []byte) (*Shard, error) {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
+
 	shard, next := c.ring.Get(key)
 	for shard != nil {
-		status := shard.GetStatus()
-		if status == StatusUp {
-			return shard, nil
-		} else if status == StatusUnknown {
-			return nil, ErrNotReady
-		}
-		
-		if c.failover {
-			shard = next()
-		} else {
-			shard = nil
+		switch shard.GetStatus() {
+		case StatusUnknown: return nil, ErrNotReady
+		case StatusUp: return shard, nil
+		default:
+			if c.failover {
+				shard = next()
+			} else {
+				shard = nil
+			}
 		}
 	}
 	

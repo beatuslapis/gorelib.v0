@@ -4,8 +4,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	
+
 	. "github.com/beatuslapis/gorelib.v0/connector"
+	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 	
 	"github.com/mediocregopher/radix.v2/pool"
 )

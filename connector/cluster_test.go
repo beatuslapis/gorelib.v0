@@ -3,6 +3,8 @@ package connector
 import (
 	"fmt"
 	"testing"
+
+	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 )
 
 type readncheck struct {

@@ -1,4 +1,4 @@
-package connector
+package cluster
 
 import (
 	"errors"
@@ -55,7 +55,7 @@ func (s *Shard) GetClient() (*redis.Client, int64, error) {
 			s.pool = pool
 		}
 	}
-	
+
 	if client, err := s.pool.Get(); err != nil {
 		return nil, 0, err
 	} else {

@@ -6,7 +6,7 @@ import (
 	"time"
 	"testing"
 	
-	. "github.com/beatuslapis/gorelib.v0/connector"
+	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 )
 
 func TestChecker(t *testing.T) {

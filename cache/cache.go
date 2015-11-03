@@ -6,7 +6,9 @@ import (
 	"errors"
 	"sync/atomic"
 	"time"
-	
+
+	. "github.com/beatuslapis/gorelib.v0/connector"
+
 	"github.com/mediocregopher/radix.v2/redis"
 	"github.com/mediocregopher/radix.v2/util"
 )
@@ -18,15 +20,6 @@ var (
 	ErrRESPParse = errors.New("RESP parse error")
 	ErrSetFailed = errors.New("Set operation failed by constraint")
 )
-
-// Connector inteface to get a redis client
-type Connector interface {
-	// Connect takes a key of []byte form.
-	// It resturns a client for the key with its disconnect function,
-	// also its validity serial which could be used
-	// for the cache invalidation, possibly consistent, checks.
-	Connect ([]byte) (*redis.Client, func(), int64, error)
-}
 
 // CacheOptions describes various paramters to control cache behaviors
 type CacheOptions struct {
@@ -78,7 +71,7 @@ func NewCache(connector Connector, options *CacheOptions) (*Cache, error) {
 
 // defaultMarshal would be same with json.Marshal,
 // except for the string type, or []byte exactly.
-// Simply for redis-side manageability and performances
+// Simply for redis-side manageability and performance.
 func defaultMarshal(v interface{}) ([]byte, error) {
 	switch vt := v.(type) {
 	case []byte:
@@ -90,7 +83,7 @@ func defaultMarshal(v interface{}) ([]byte, error) {
 
 // defaultUnmarshal would be same with json.Unmarshal,
 // except for the string type, or []byte exactly.
-// Simply for redis-side manageabilities and performances
+// Simply for redis-side manageability and performance.
 func defaultUnmarshal(d []byte, v interface{}) error {
 	switch vt := v.(type) {
 	case *[]byte:
