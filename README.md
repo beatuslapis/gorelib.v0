@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/beatuslapis/gorelib.v0?status.svg)](https://godoc.org/github.com/beatuslapis/gorelib.v0)
 
-Collection of minimalistic libraries for golang using, hopefully clusterized, redis servers.
+Collection of minimalistic libraries for golang using, hopefully clustered, redis servers.
 
 * [cache](http://godoc.org/github.com/beatuslapis/gorelib.v0/cache) -
   A cache implementation
@@ -12,19 +12,25 @@ Collection of minimalistic libraries for golang using, hopefully clusterized, re
    You may override them with your own marshal functions.
 
  * Provides a serial of the value with a form of an unix timestamp in millis.
-   It could be used for validity, and possibly consistent, checks when using clusterized connectors.
+   It could be used for validity, and possibly consistent, checks when using clustered connectors.
    Redis nodes on clusterized environments could go on and off inadvertently.
-   Having serials could be useful on automatic cache invalidations.
+   Having serials could be useful on automatic cache invalidation.
 
  * Provides CheckAndSet method for more consistent CAS update patterns.
    When a long-taken or complex update needed,
    you could consider CAS patterns for the transaction using serial values.
 
 * [connector](http://godoc.org/github.com/beatuslapis/gorelib.v0/connector) -
-  A collection of connector implementations for the gorecache
+  A collection of connector implementations for the gorelib
+
+ * [zkcluster](http://godoc.org/github.com/beatuslapis/gorelib.v0/connector/zkcluster) -
+   The connector and relevant components for the zookeeper assisted redis cluster.
+   The connector should read cluster information and its shard status from the zookeeper.
+   Separate checkers would update shard status in the zookeeper.
+   Multiple checkers which would do quorum-like decisions on status changes are also possible.
 
 * [checker](http://godoc.org/github.com/beatuslapis/gorelib.v0/checker) -
-  A checker implementations for the clusterized redis instances
+  A checker implementations for the clustered redis instances
 
 ## Features
 
