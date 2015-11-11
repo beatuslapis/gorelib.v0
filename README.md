@@ -23,7 +23,7 @@ Collection of minimalistic libraries for golang using, hopefully clustered, redi
 * [connector](http://godoc.org/github.com/beatuslapis/gorelib.v0/connector) -
   A collection of connector implementations for the gorelib
 
- * [zkcluster](http://godoc.org/github.com/beatuslapis/gorelib.v0/connector/zkcluster) -
+ * [zkcluster](http://godoc.org/github.com/beatuslapis/gorelib.v0/zkcluster) -
    The connector and relevant components for the zookeeper assisted redis cluster.
    The connector should read cluster information and its shard status from the zookeeper.
    Separate checkers would update shard status in the zookeeper.
