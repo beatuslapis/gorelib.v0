@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"testing"
 
+	. "github.com/beatuslapis/gorelib.v0/checker"
 	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 )
 
 type readncheck struct {
 	nodes map[string]string
+	updates chan ShardStatus
 }
 
-func (r *readncheck) GetShards() []Shard {
+func (r *readncheck) ReadNodes() []Shard {
 	shards := make([]Shard, len(r.nodes))
 	i := 0
 	for name, addr := range r.nodes {
@@ -24,17 +26,31 @@ func (r *readncheck) GetShards() []Shard {
 	return shards
 }
 
-func (r *readncheck) Start(shards []Shard, setStatus StatusFunc) {
-	for i, _ := range shards {
-		if shards[i].Addr == ":6378" {
-			setStatus(&shards[i], StatusDown)
-		} else {
-			setStatus(&shards[i], StatusUp)
+func (r *readncheck) Start(shards []Shard) <-chan ShardStatus {
+	r.updates = make(chan ShardStatus)
+
+	go func() {
+		for _, s := range shards {
+			if s.Addr == ":6378" {
+				r.updates <- ShardStatus{
+					Addr: s.Addr,
+					Alive: false,
+				}
+			} else {
+				r.updates <- ShardStatus{
+					Addr: s.Addr,
+					Alive: true,
+				}
+			}
+
 		}
-	}
+	}()
+
+	return r.updates
 }
 
 func (r *readncheck) Stop() {
+	close(r.updates)
 	return
 }
 

@@ -53,7 +53,7 @@ func TestWrap(t *testing.T) {
 		},
 		nodelist,
 	}
-	ring := builder.Build(builder.GetShards())
+	ring := builder.BuildRing(builder.GetShards())
 	a, nextA := ring.Get([]byte("2300"))
 	i := 0
 	for ; a != nil; i++ {
@@ -78,7 +78,7 @@ func TestConsistency(t *testing.T) {
 		},
 		nodelist,
 	}
-	ringB := builderB.Build(builderB.GetShards())
+	ringB := builderB.BuildRing(builderB.GetShards())
 
 	nodelist["111"] = "server1"
 	builderA := &ReaderAndBuilder{
@@ -88,15 +88,15 @@ func TestConsistency(t *testing.T) {
 		},
 		nodelist,
 	}
-	ringA := builderA.Build(builderA.GetShards())
+	ringA := builderA.BuildRing(builderA.GetShards())
 
 	for _, key := range keys {
 		a, nextA := ringA.Get([]byte(key))
 		b, _ := ringB.Get([]byte(key))
-		fmt.Println("Key:", key, " A:", a.Addr, " B:", b.Addr)
+		fmt.Println("Key:", key, " A:", a.Name, " B:", b.Name)
 		for a.Name == "111" {
 			a = nextA()
-			fmt.Println("          nextA:", a.Addr)
+			fmt.Println("          nextA:", a.Name)
 		}
 		if a.Name != b.Name {
 			fmt.Println("inconsistency found")

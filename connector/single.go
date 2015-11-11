@@ -11,22 +11,26 @@ type Single struct {
 }
 
 // Generate a connector for the given single redis instance
-func NewSingle(addr string, poolsize int) (c *Single, err error) {
-	c = &Single{}
-	c.pool, err = pool.New("tcp", addr, poolsize)
-	if err != nil {
-		c = nil
-		return 
+func NewSingle(addr string, poolsize int) (*Single, error) {
+	c := &Single{}
+	if pool, err := pool.New("tcp", addr, poolsize); err != nil {
+		return nil, err
+	} else {
+		c.pool = pool
+		return c, nil
 	}
-	return
 }
 
 // Connect to a pooled single redis instance
-func (c *Single) Connect (key []byte) (*redis.Client, func (), int64, error) {
-	client, err := c.pool.Get()
-	disconnect := func () {
-		c.pool.Put(client)
+func (c *Single) Connect(key []byte) (*redis.Client, func (), int64, error) {
+	if client, err := c.pool.Get(); err != nil {
+		return nil, nil, 0, err
+	} else {
+		return client, func() { c.pool.Put(client) }, 0, err
 	}
-	return client, disconnect, 0, err
 }
 
+// Dispose the connector
+func (c *Single) Shutdown() {
+	c.pool.Empty()
+}

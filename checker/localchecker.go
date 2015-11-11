@@ -5,33 +5,33 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "github.com/beatuslapis/gorelib.v0/connector"
 	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 	
 	"github.com/mediocregopher/radix.v2/pool"
+	"fmt"
 )
 
-// Context informations for a shard
+// Context information for a shard
 type checkContext struct {
-	shard *Shard
+	status ShardStatus
 	mpool *pool.Pool
-	alive time.Time
+	lastalive time.Time
 	delay uint
 	penalty uint
 	incheck bool
 }
 
-// A simple checker implementation for clusterized redis instances
-type ClusterChecker struct {
+// A simple checker implementation for clustered redis instances
+type LocalChecker struct {
 	Nworker int
 	Interval time.Duration
 	Threshold time.Duration
 
 	checkerstatus int32
 
-	statusfn StatusFunc
 	jobs chan *checkContext
 	done chan bool
+	updates chan ShardStatus
 	waitscheduler sync.WaitGroup
 	waitmonitor sync.WaitGroup
 }
@@ -45,9 +45,11 @@ const (
 // A scheduler function for each shard.
 // Send a job to workers for each time period.
 // It would skip a job when the check is in progress.
-func (c *ClusterChecker) nodeScheduler(s *Shard) {
+func (c *LocalChecker) nodeScheduler(s *Shard) {
 	cxt := &checkContext{
-		shard: s,
+		status: ShardStatus{
+			Addr: s.Addr,
+		},
 		delay: 1,
 		penalty: 2,
 	}
@@ -64,22 +66,27 @@ func (c *ClusterChecker) nodeScheduler(s *Shard) {
 	}
 }
 
+func (c *LocalChecker) sendUpdate(cxt *checkContext, isAlive bool) {
+	defer func(){
+		s := recover()
+		fmt.Errorf("sendUpdate recovered from [%s]", s)
+	}()
+
+	cxt.status.Alive = isAlive
+	cxt.status.Since = time.Now().UnixNano() / 1000
+
+	c.updates <- cxt.status
+}
+
 // Process an alive event of a shard.
 // If the shard has penalties, it would wait penalties decreasing.
 // Each alive event would decrease penalties by 1.
-func (c *ClusterChecker) processAlive(cxt *checkContext) {
-	switch cxt.shard.GetStatus() {
-	case StatusUnknown:
-		c.statusfn(cxt.shard, StatusUp)
-	case StatusDown:
-		if cxt.delay == 1 {
-			c.statusfn(cxt.shard, StatusUp)
-		}
-	case StatusUp:
-	default:
+func (c *LocalChecker) processAlive(cxt *checkContext) {
+	if (!cxt.status.Alive && cxt.delay == 1) || cxt.status.Since == 0 {
+		c.sendUpdate(cxt, true)
 	}
 
-	cxt.alive = time.Now()
+	cxt.lastalive = time.Now()
 	if cxt.delay > 1 {
 		cxt.delay--
 	}
@@ -89,32 +96,25 @@ func (c *ClusterChecker) processAlive(cxt *checkContext) {
 }
 
 // Process a dead event of a shard.
-func (c *ClusterChecker) processDead(cxt *checkContext) {
-	switch cxt.shard.GetStatus() {
-	case StatusUnknown:
-		c.statusfn(cxt.shard, StatusDown)
-	case StatusDown:
-	case StatusUp:
-		if time.Since(cxt.alive) > c.Threshold {
-			cxt.delay = cxt.penalty
-			cxt.penalty *= 3
-			if maxpenalty := uint(c.Threshold.Seconds() * 10); cxt.penalty > maxpenalty {
-				cxt.penalty = maxpenalty
-			}
-			c.statusfn(cxt.shard, StatusDown)
+func (c *LocalChecker) processDead(cxt *checkContext) {
+	if (cxt.status.Alive && time.Since(cxt.lastalive) > c.Threshold) || cxt.status.Since == 0 {
+		cxt.delay = cxt.penalty
+		cxt.penalty *= 3
+		if maxpenalty := uint(c.Threshold.Seconds() * 10); cxt.penalty > maxpenalty {
+			cxt.penalty = maxpenalty
 		}
-	default:
+		c.sendUpdate(cxt, false)
 	}
 }
 
 // Check a shard.
 // Send a redis "PING" command and checks its response.
-func (c *ClusterChecker) checkNode(cxt *checkContext) {
+func (c *LocalChecker) checkNode(cxt *checkContext) {
 	cxt.incheck = true
 	defer func() { cxt.incheck = false }()
 
 	if cxt.mpool == nil {
-		if pool, err := pool.New("tcp", cxt.shard.Addr, 1); err == nil {
+		if pool, err := pool.New("tcp", cxt.status.Addr, 1); err == nil {
 			cxt.mpool = pool
 		}
 	}
@@ -133,7 +133,7 @@ func (c *ClusterChecker) checkNode(cxt *checkContext) {
 }
 
 // A worker function to monitor shards using the job channel.
-func (c *ClusterChecker) nodeMonitor() {
+func (c *LocalChecker) nodeMonitor() {
 	for cxt := range c.jobs {
 		select {
 		case <- c.done:
@@ -146,14 +146,14 @@ func (c *ClusterChecker) nodeMonitor() {
 
 // Start the checker.
 // If it is already running, do nothing.
-func (c *ClusterChecker) Start(shards []Shard, setStatus StatusFunc) {
+func (c *LocalChecker) Start(shards []Shard) <-chan ShardStatus {
 	if !atomic.CompareAndSwapInt32(&c.checkerstatus, checkerStopped, checkerStarted) {
-		return
+		return nil
 	}
 
-	c.statusfn = setStatus
 	c.jobs = make(chan *checkContext, len(shards))
 	c.done = make(chan bool)
+	c.updates = make(chan ShardStatus, len(shards))
 	
 	c.waitscheduler.Add(len(shards))
 	for i, _ := range shards {
@@ -170,20 +170,23 @@ func (c *ClusterChecker) Start(shards []Shard, setStatus StatusFunc) {
 			c.waitmonitor.Done()
 		}()
 	}
+
+	return c.updates
 }
 
 // Stop the checker.
 // If it is already stopped, do nothing.
-func (c *ClusterChecker) Stop() {
+func (c *LocalChecker) Stop() {
 	if !atomic.CompareAndSwapInt32(&c.checkerstatus, checkerStarted, checkerStopped) {
 		return
 	}
 
 	// close channels
 	close(c.done)
-	close(c.jobs)
-
-	// wait to stop schedulers and monitors
 	c.waitscheduler.Wait()
+
+	close(c.jobs)
 	c.waitmonitor.Wait()
+
+	close(c.updates)
 }

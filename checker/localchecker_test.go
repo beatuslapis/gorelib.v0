@@ -1,11 +1,10 @@
 package checker
 
 import (
-	"sync"
 	"fmt"
-	"time"
 	"testing"
-	
+	"time"
+
 	. "github.com/beatuslapis/gorelib.v0/connector/cluster"
 )
 
@@ -37,31 +36,22 @@ func TestChecker(t *testing.T) {
 		},
 	}
 	
-	checker := ClusterChecker {
+	checker := LocalChecker{
 		Nworker: 2,
 		Interval: 1 * time.Second,
 		Threshold: 3 * time.Second,
 	}
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	updates := checker.Start(shards)
 	go func() {
-		defer wg.Done()
-		for i := 0; i < 60; i++ {
-			fmt.Print("[", i, "] Status: ")
-			for j, _ := range shards {
-				fmt.Print(shards[j].GetStatus(), ", ")
-			}
-			fmt.Println("")
-			time.Sleep(1 * time.Second)
+		for event := range updates {
+			e := ShardStatus(event)
+			fmt.Println(e.Addr, e)
 		}
+		fmt.Println("quitting reader...")
 	}()
-	
-	checker.Start(shards, func(s *Shard,status int){s.SetStatus(status)})
-	time.Sleep(60 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	checker.Stop()
 	time.Sleep(2 * time.Second)
-	
-	wg.Wait()
 }

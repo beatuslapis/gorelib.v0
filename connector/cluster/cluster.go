@@ -1,26 +1,31 @@
 package cluster
 
-import (
-	"sort"
-)
+import "sort"
 
-// An interface to build a HashRing with given shard informations
-type RingBuilder interface {
-	Build(shards []Shard) *HashRing
+type Shard struct {
+	Name string
+	Addr string
 }
 
-// Type of a hash function which would be used to create the ring and locate data
-type HashFunc func([]byte) uint32
+type NodeReader interface {
+	ReadNodes() []Shard
+}
 
-// HashRing object for a clusterized connector
+type HashFunc func([] byte) uint32
+
+// HashRing object for a clustered connector
 type HashRing struct {
 	hashfn HashFunc
 	points []int
 	shards map[int]*Shard
 }
 
+type RingBuilder interface {
+	BuildRing([]Shard) *HashRing
+}
+
 // Return a shard for a given key
-// with the iterator closure function which could be used by failover logics
+// with the iterator closure function which could be used by failover logic.
 func (r *HashRing) Get(key []byte) (*Shard, func() *Shard) {
 	if key == nil || r.points == nil || r.shards == nil {
 		return nil, nil
@@ -32,7 +37,7 @@ func (r *HashRing) Get(key []byte) (*Shard, func() *Shard) {
 	}
 	cur := idx
 	wrapped := false
-	
+
 	next := func() *Shard {
 		cur++
 		if cur >= len(r.points) {

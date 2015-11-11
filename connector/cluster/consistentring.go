@@ -28,8 +28,8 @@ type ConsistentRing struct {
 	Nreplica int
 }
 
-// Build a consistent HashRing with given shard informations
-func (r *ConsistentRing) Build(shards []Shard) *HashRing {
+// Build a consistent HashRing with given shard information
+func (r *ConsistentRing) BuildRing(shards []Shard) *HashRing {
 	fn := r.Hashfunc
 	if fn == nil {
 		fn = crc32.ChecksumIEEE

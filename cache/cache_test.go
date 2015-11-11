@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 	
-	"github.com/beatuslapis/gorecache.v0/connector"
+	"github.com/beatuslapis/gorelib.v0/connector"
 )
 
 type Key struct {
