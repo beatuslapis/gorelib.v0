@@ -1,4 +1,5 @@
 package zkcluster
+
 import (
 	"encoding/json"
 	"errors"
@@ -7,10 +8,12 @@ import (
 	"time"
 )
 
+// The manager of cluster information on the zookeeper.
 type ZKManager struct {
 	zc *ZKConnector
 }
 
+// Return a new manager instance.
 func NewZKManager(servers []string, timeout time.Duration) (*ZKManager, error) {
 	zm := &ZKManager{}
 	if zk, err := NewZKConnector(servers, timeout); err != nil {
@@ -26,6 +29,7 @@ func NewZKManager(servers []string, timeout time.Duration) (*ZKManager, error) {
 	return zm, nil
 }
 
+// Create a new cluster information with given option onto the zookeeper.
 func (zm *ZKManager) CreateCluster(cluster *ZKClusterInfo) error {
 	if cluster == nil {
 		return errors.New("invalid cluster informations")
@@ -69,6 +73,7 @@ func (zm *ZKManager) CreateCluster(cluster *ZKClusterInfo) error {
 	return ret
 }
 
+// Update a cluster information.
 func (zm *ZKManager) UpdateCluster(cluster *ZKClusterInfo) error {
 	if cluster == nil {
 		return errors.New("invalid cluster informations")
@@ -107,6 +112,7 @@ func (zm *ZKManager) UpdateCluster(cluster *ZKClusterInfo) error {
 	}
 }
 
+// Delete the cluster.
 func (zm *ZKManager) DeleteCluster(name string) error {
 	cluster_root := ZK_ROOT + "/" + name
 	if exists, _, err := zm.zc.conn.Exists(cluster_root); err != nil || !exists {
@@ -128,6 +134,7 @@ func (zm *ZKManager) DeleteCluster(name string) error {
 	return nil
 }
 
+// Dispose the manager instance.
 func (zm *ZKManager) Shutdown() {
 	if zm.zc != nil {
 		zm.zc.Shutdown()

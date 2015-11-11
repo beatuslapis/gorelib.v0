@@ -88,8 +88,6 @@ func (c *Cluster) statusUpdateReceiver(updates <-chan ShardStatus) {
 	}
 }
 
-var nilStatus = ShardStatus{}
-
 // Get a shard for a given key.
 // If the cluster is enabled the shard failover option, it tries failover to an available shard.
 // It is protected by the r/w mutex for concurrent executions.
@@ -103,7 +101,7 @@ func (c *Cluster) getShard(key []byte) (*Shard, int64, error) {
 
 	shard, next := c.ring.Get(key)
 	for shard != nil {
-		if status := c.status[shard.Addr]; status == nilStatus {
+		if status, ok := c.status[shard.Addr]; !ok {
 			return nil, 0, ErrNotReady
 		} else {
 			if status.Alive {
@@ -119,9 +117,9 @@ func (c *Cluster) getShard(key []byte) (*Shard, int64, error) {
 	return nil, 0, ErrNotAvail
 }
 
-// Locate and connect to an appropriate redis instace with a key.
+// Locate and connect to an appropriate redis instance with a key.
 // Shard-to-shard failover could happen when enabled and needed.
-// If a located shard is not ready yet, i.e. the healthchecker does not decide its status,
+// If a located shard is not ready yet, i.e. the health checker does not decide its status,
 // wait 0.1 second for settling down.
 func (c *Cluster) Connect(key []byte) (*redis.Client, func(), int64, error) {
 	shard, since, err := c.getShard(key)
@@ -152,6 +150,7 @@ func (c *Cluster) Connect(key []byte) (*redis.Client, func(), int64, error) {
 	}
 }
 
+// Dispose the connector
 func (c *Cluster) Shutdown() {
 	if c.checker != nil {
 		c.checker.Stop()

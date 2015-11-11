@@ -11,12 +11,14 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
+// Cluster options stored on the zookeeper.
 type ZKClusterOptions struct {
 	FailoverEnabled bool
 	RingType string
 	RingParams string
 }
 
+// Cluster information stored on the zookeeper.
 type ZKClusterInfo struct {
 	Name string
 	Version int64
@@ -24,6 +26,7 @@ type ZKClusterInfo struct {
 	Shards []Shard
 }
 
+// Connector interface to zookeeper servers.
 type ZKConnector struct {
 	servers []string
 	conn *zk.Conn

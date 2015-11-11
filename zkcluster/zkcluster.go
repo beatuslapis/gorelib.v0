@@ -14,7 +14,9 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
-
+// Connector implementation for the zookeeper assisted redis cluster.
+// It reads cluster configurations and shard status from zookeeper servers.
+// It also has roles of NodeReader, RingBuilder and HealthChecker which Cluster interface requires.
 type ZKCluster struct {
 	connector *Cluster
 
@@ -29,6 +31,7 @@ type ZKCluster struct {
 	updates chan ShardStatus
 }
 
+// Return a new ZKCluster instance.
 func NewZKCluster(servers []string, clustername string, timeout time.Duration) (*ZKCluster, error) {
 	cluster := &ZKCluster{
 		version: -1,
@@ -60,10 +63,12 @@ func NewZKCluster(servers []string, clustername string, timeout time.Duration) (
 	return cluster, nil
 }
 
+// Locate and connect to an appropriate redis instance with a key.
 func (c *ZKCluster) Connect(key []byte) (*redis.Client, func(), int64, error) {
 	return c.connector.Connect(key)
 }
 
+// Dispose the connector.
 func (c *ZKCluster) Shutdown() {
 	c.Stop()
 
@@ -77,6 +82,7 @@ func (c *ZKCluster) Shutdown() {
 	}
 }
 
+// ZK assisted NodeReader implementation.
 func (c *ZKCluster) ReadNodes() []Shard {
 	cluster_root := ZK_ROOT + "/" + c.info.Name
 	if shardbytes, _, err := c.zc.conn.Get(cluster_root + "/shards"); err != nil {
@@ -90,6 +96,8 @@ func (c *ZKCluster) ReadNodes() []Shard {
 	}
 }
 
+// ZK assisted RingBuilder implementation.
+// The ring type or the parameters might be designated via the zookeeper.
 func (c *ZKCluster) BuildRing(shards []Shard) *HashRing {
 	switch strings.ToLower(c.info.Options.RingType) {
 	case "consistent":
@@ -106,6 +114,7 @@ func (c *ZKCluster) BuildRing(shards []Shard) *HashRing {
 	}
 }
 
+// The watcher for status updates via the zookeeper.
 func (c *ZKCluster) watchStatusUpdates() {
 	status_node := ZK_ROOT + "/" + c.info.Name + "/status"
 	for {
@@ -131,6 +140,7 @@ func (c *ZKCluster) watchStatusUpdates() {
 	}
 }
 
+// ZK assisted HealthChecker implementation.
 func (c *ZKCluster) Start(shards []Shard) <-chan ShardStatus {
 	if c.checkerdone != nil {
 		return c.updates
@@ -145,6 +155,7 @@ func (c *ZKCluster) Start(shards []Shard) <-chan ShardStatus {
 
 }
 
+// ZK assisted HealthChecker implementation.
 func (c *ZKCluster) Stop() {
 	if c.checkerdone != nil {
 		close(c.checkerdone)

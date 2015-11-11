@@ -10,7 +10,7 @@ type ShardStatus struct {
 	Since int64
 }
 
-// An interface for a health checker to manage cluster status'
+// An interface for a health checker to manage cluster status
 type HealthChecker interface {
 	Start([]Shard) <-chan ShardStatus
 	Stop()

@@ -12,6 +12,7 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
+// Options for ZKChecker
 type ZKCheckerOptions struct {
 	ZKServers []string
 	ZKTimeout time.Duration
@@ -21,6 +22,14 @@ type ZKCheckerOptions struct {
 	Threshold time.Duration
 }
 
+// Healthchecker implementation of the zookeeper assisted redis cluster.
+// It checks the status of redis instances and record them to the zookeeper.
+// ZKCluster would watch that information and update its status.
+// ZKChecker also supports quorum-like decisions with an automatic leader election.
+// The leader gathers votes from all checkers to change status.
+// Once the majority(even would be ignored) has an opposite state, a status change happens.
+// Only the leader can gather votes, open the ballot box and update the status.
+// If the leader lost a connection to the zookeeper, another one would take the leader automatically.
 type ZKChecker struct {
 	zc *ZKConnector
 	name string
@@ -33,6 +42,7 @@ type ZKChecker struct {
 	checker *LocalChecker
 }
 
+// Return a new checker instance.
 func NewZKChecker(options *ZKCheckerOptions) (*ZKChecker, error) {
 	checker := &ZKChecker{
 		checker: &LocalChecker{
@@ -53,7 +63,7 @@ func NewZKChecker(options *ZKCheckerOptions) (*ZKChecker, error) {
 	return checker, nil
 }
 
-
+// Register a checker itself on the zookeeper.
 func (c *ZKChecker) registerChecker() (string, error) {
 	status_global := ZK_ROOT + "/" + c.info.Name + "/status"
 	status_path := ZK_ROOT + "/" + c.info.Name + "/localstatus"
@@ -77,6 +87,8 @@ func (c *ZKChecker) registerChecker() (string, error) {
 	}
 }
 
+// Check votes and open the ballot box.
+// Only the leader of checkers could do this.
 func (c *ZKChecker) checkVotes() {
 	status_global := ZK_ROOT + "/" + c.info.Name + "/status"
 	globalstatus := make(map[string]ShardStatus)
@@ -126,6 +138,7 @@ func (c *ZKChecker) checkVotes() {
 	}
 }
 
+// The loop for leader elections.
 func (c *ZKChecker) statusUpdater() {
 	status_path := ZK_ROOT + "/" + c.info.Name + "/localstatus"
 	for {
@@ -152,25 +165,25 @@ func (c *ZKChecker) statusUpdater() {
 	}
 }
 
-func (c *ZKChecker) writeStatus() {
+// The watcher for a local checker.
+// If any change happens, update local status changes to the zookeeper.
+// It would trigger checking votes of the leader.
+func (c *ZKChecker) watchUpdates(updates <-chan ShardStatus) {
 	status_path := ZK_ROOT + "/" + c.info.Name + "/localstatus"
 	node_path := status_path + "/" + c.id
-	if statusbytes, err := json.Marshal(c.status); err == nil {
-		if _, err := c.zc.conn.Set(node_path, statusbytes, -1); err == nil {
-			c.zc.conn.Set(status_path, []byte(c.info.Name), -1)
-		}
-	}
-}
-
-func (c *ZKChecker) watchUpdates(updates <-chan ShardStatus) {
 	for update := range updates {
 		if stat, ok := c.status[update.Addr]; !ok || stat.Alive != update.Alive {
 			c.status[update.Addr] = update
-			c.writeStatus()
+			if statusbytes, err := json.Marshal(c.status); err == nil {
+				if _, err := c.zc.conn.Set(node_path, statusbytes, -1); err == nil {
+					c.zc.conn.Set(status_path, []byte(c.info.Name), -1)
+				}
+			}
 		}
 	}
 }
 
+// Start the checker.
 func (c *ZKChecker) Start() error {
 	if c.done != nil {
 		return errors.New("Checker is already started.")
@@ -197,6 +210,7 @@ func (c *ZKChecker) Start() error {
 	return nil
 }
 
+// Stop the checker.
 func (c *ZKChecker) Stop() {
 	if c.done != nil {
 		close(c.done)
@@ -206,6 +220,7 @@ func (c *ZKChecker) Stop() {
 	}
 }
 
+// Dispose the checker.
 func (c *ZKChecker) Shutdown() {
 	c.Stop()
 	c.zc.Shutdown()

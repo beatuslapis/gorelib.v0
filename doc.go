@@ -1,2 +1,2 @@
-// Collection of minimalistic libraries for golang using, hopefully clusterized, redis servers.
+// Collection of minimalistic libraries for golang using, hopefully clustered, redis servers.
 package gorelib
