@@ -48,6 +48,7 @@ Collection of minimalistic libraries for golang using, hopefully clustered, redi
 The test action assumes you have the following running:
 
 * A redis server listening on port 6379
+* A zookeeper server listening on port 2181
 
 ## Copyright and licensing
 
