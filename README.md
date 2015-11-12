@@ -23,19 +23,24 @@ Collection of minimalistic libraries for golang using, hopefully clustered, redi
 * [connector](http://godoc.org/github.com/beatuslapis/gorelib.v0/connector) -
   A collection of connector implementations for the gorelib
 
- * [zkcluster](http://godoc.org/github.com/beatuslapis/gorelib.v0/zkcluster) -
-   The connector and relevant components for the zookeeper assisted redis cluster.
-   The connector should read cluster information and its shard status from the zookeeper.
-   Separate checkers would update shard status in the zookeeper.
-   Multiple checkers which would do quorum-like decisions on status changes are also possible.
-
 * [checker](http://godoc.org/github.com/beatuslapis/gorelib.v0/checker) -
   A checker implementations for the clustered redis instances
+
+* [zkcluster](http://godoc.org/github.com/beatuslapis/gorelib.v0/zkcluster) -
+  The connector and relevant components for the zookeeper assisted redis cluster.
+  The connector should read cluster information and its shard status from the zookeeper.
+  Separate checkers would update shard status in the zookeeper.
+  Multiple checkers which would do quorum-like decisions on status changes are also possible.
 
 ## Features
 
 * Use [radix.v2](https://github.com/mediocregopher/radix.v2) as connectors.
   You may use any connector you want which is compatible with the client of the radix.
+
+* Clustered redis interface which supports shard-to-shards failover.
+
+* Cluster implementation assisted by the zookeeper.
+  It also has separately runnable health checkers which make quorum-like decisions.
 
 ## Installation
 
